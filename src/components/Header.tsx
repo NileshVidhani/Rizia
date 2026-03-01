@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { Trophy, Menu, X, MapPin, ChevronDown, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { RiziaLogo } from './RiziaLogo';

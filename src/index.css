@@ -2642,10 +2642,6 @@
     color: var(--color-purple-100);
   }
 
-  .text-purple-300 {
-    color: var(--color-purple-300);
-  }
-
   .text-purple-400 {
     color: var(--color-purple-400);
   }
@@ -2664,10 +2660,6 @@
 
   .text-purple-800 {
     color: var(--color-purple-800);
-  }
-
-  .text-purple-900 {
-    color: var(--color-purple-900);
   }
 
   .text-red-500 {
@@ -4401,17 +4393,6 @@
     }
   }
 
-  .dark\:to-pink-950\/50:is(.dark *) {
-    --tw-gradient-to: color-mix(in srgb, oklch(.284 .109 3.907) 50%, transparent);
-    --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
-  }
-
-  @supports (color: color-mix(in lab, red, red)) {
-    .dark\:to-pink-950\/50:is(.dark *) {
-      --tw-gradient-to: color-mix(in oklab, var(--color-pink-950) 50%, transparent);
-    }
-  }
-
   .dark\:to-purple-950:is(.dark *) {
     --tw-gradient-to: var(--color-purple-950);
     --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
@@ -4491,10 +4472,6 @@
 
   .dark\:text-orange-400:is(.dark *) {
     color: var(--color-orange-400);
-  }
-
-  .dark\:text-purple-200:is(.dark *) {
-    color: var(--color-purple-200);
   }
 
   .dark\:text-purple-300:is(.dark *) {

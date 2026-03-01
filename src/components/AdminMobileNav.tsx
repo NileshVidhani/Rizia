@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router';
 import { LayoutDashboard, Trophy, FileText, BarChart3, Users } from 'lucide-react';
 
 export function AdminMobileNav() {

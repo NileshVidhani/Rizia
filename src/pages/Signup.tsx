@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { Mail, Lock, User, Eye, EyeOff, UserPlus, Sparkles, Tag, Loader2 } from 'lucide-react';
 import { RiziaLogo } from '../components/RiziaLogo';
 import { supabase, hashPassword, isSupabaseConfigured } from '../utils/supabaseClient';

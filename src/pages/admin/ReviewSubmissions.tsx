@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router';
 import { Shield, LogOut, CheckCircle, XCircle, MessageSquare, ArrowLeft } from 'lucide-react';
 import { getCompetitionById } from '../../data/mockData';
 

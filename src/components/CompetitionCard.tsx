@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { Calendar, Award, ArrowRight, MapPin, Clock } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 

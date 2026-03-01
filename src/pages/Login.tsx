@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { Mail, Lock, Eye, EyeOff, LogIn, Sparkles, Shield, User, Loader2 } from 'lucide-react';
 import { RiziaLogo } from '../components/RiziaLogo';
 import { supabase, verifyPassword, isSupabaseConfigured } from '../utils/supabaseClient';
@@ -260,16 +260,7 @@ export default function Login({ onLogin }: LoginProps) {
           </form>
 
           {/* Demo Credentials */}
-          {formData.loginType === 'admin' && (
-            <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/50 dark:to-pink-950/50 border border-purple-200 dark:border-purple-800 rounded-2xl">
-              <p className="text-sm text-purple-900 dark:text-purple-200 mb-1 flex items-center gap-2">
-                <Shield size={16} />
-                <span>Demo Admin Credentials:</span>
-              </p>
-              <p className="text-sm text-purple-800 dark:text-purple-300">Email: admin@rizia.com</p>
-              <p className="text-sm text-purple-800 dark:text-purple-300">Password: admin123</p>
-            </div>
-          )}
+          {/* ... remove this code ... */}
         </div>
 
         {/* Additional Info */}
