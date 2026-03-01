@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
-import { getEventById } from '../data/mockData';
+import { fetchEventById } from '../utils/supabaseHelpers';
 import { CreditCard, Lock, CheckCircle, Calendar, MapPin, Ticket, User, Mail, Phone, Shield, Loader2 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
 
@@ -13,7 +13,8 @@ interface CheckoutProps {
 export default function Checkout({ user }: CheckoutProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const event = id ? getEventById(id) : null;
+  const [event, setEvent] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   const [step, setStep] = useState(1);
   const [ticketCount, setTicketCount] = useState(1);
@@ -29,12 +30,46 @@ export default function Checkout({ user }: CheckoutProps) {
     upiId: ''
   });
 
+  useEffect(() => {
+    if (id) {
+      loadEvent(id);
+    }
+  }, [id]);
+
+  const loadEvent = async (eventId: string) => {
+    try {
+      setLoading(true);
+      const data = await fetchEventById(eventId);
+      if (!data) {
+        navigate('/competitions');
+        return;
+      }
+      setEvent(data);
+    } catch (error) {
+      console.error('Error loading event:', error);
+      navigate('/competitions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900">
+        <Header user={user} />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-white text-xl">Loading event...</div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   if (!event) {
-    navigate('/competitions');
     return null;
   }
 
-  const pricePerTicket = parseInt(event.price.replace(/[^0-9]/g, ''));
+  const pricePerTicket = parseInt(event.price.toString().replace(/[^0-9]/g, ''));
   const subtotal = pricePerTicket * ticketCount;
   const convenienceFee = Math.round(subtotal * 0.05);
   const total = subtotal + convenienceFee;
@@ -44,7 +79,7 @@ export default function Checkout({ user }: CheckoutProps) {
     if (step === 1) {
       setStep(2);
     } else if (step === 2) {
-      // Process dummy payment and save booking
+      // Process dummy payment and save booking (payment API to be integrated later)
       setProcessing(true);
       
       try {

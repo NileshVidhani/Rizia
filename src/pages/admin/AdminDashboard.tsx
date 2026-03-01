@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -22,23 +22,54 @@ import {
 } from 'lucide-react';
 import { RiziaLogo } from '../../components/RiziaLogo';
 import { ThemeToggle } from '../../components/ThemeToggle';
-import { mockEvents, getAllSubmissions } from '../../data/mockData';
 import { AdminMobileNav } from '../../components/AdminMobileNav';
+import { fetchAllEvents, fetchAllBookings, fetchDashboardStats } from '../../utils/supabaseHelpers';
 
 interface AdminDashboardProps {
   onLogout: () => void;
 }
 
 export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
-  const submissions = getAllSubmissions();
-  const pendingCount = submissions.filter(s => s.status === 'pending').length;
-  const approvedCount = submissions.filter(s => s.status === 'approved').length;
-  const rejectedCount = submissions.filter(s => s.status === 'rejected').length;
+  const [events, setEvents] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    totalEvents: 0,
+    totalBookings: 0,
+    totalUsers: 0,
+    totalRevenue: 0
+  });
+  const [loading, setLoading] = useState(true);
 
-  const stats = [
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [eventsData, bookingsData, statsData] = await Promise.all([
+        fetchAllEvents(),
+        fetchAllBookings(),
+        fetchDashboardStats()
+      ]);
+
+      setEvents(eventsData);
+      setBookings(bookingsData);
+      setStats(statsData);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmedBookings = bookings.filter(b => b.booking_status === 'confirmed').length;
+  const pendingBookings = bookings.filter(b => b.booking_status === 'pending').length;
+
+  const statsCards = [
     {
       label: 'Total Events',
-      value: mockEvents.length.toString(),
+      value: stats.totalEvents.toString(),
       change: '+12%',
       trend: 'up',
       icon: Trophy,
@@ -47,7 +78,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
     },
     {
       label: 'Total Bookings',
-      value: submissions.length.toString(),
+      value: stats.totalBookings.toString(),
       change: '+23%',
       trend: 'up',
       icon: Users,
@@ -55,8 +86,8 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       bgGradient: 'from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30'
     },
     {
-      label: 'Pending Review',
-      value: pendingCount.toString(),
+      label: 'Pending Bookings',
+      value: pendingBookings.toString(),
       change: '-5%',
       trend: 'down',
       icon: Clock,
@@ -65,7 +96,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
     },
     {
       label: 'Revenue',
-      value: '₹2.4L',
+      value: `₹${(stats.totalRevenue / 1000).toFixed(1)}K`,
       change: '+18%',
       trend: 'up',
       icon: TrendingUp,
@@ -74,8 +105,8 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
     }
   ];
 
-  const recentEvents = mockEvents.slice(0, 5);
-  const recentSubmissions = submissions.slice(0, 6);
+  const recentEvents = events.slice(0, 5);
+  const recentBookings = bookings.slice(0, 6);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900">
@@ -155,14 +186,14 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
             </Link>
 
             <Link
-              to="/admin/manage-competitions"
+              to="/admin/bookings"
               className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors group"
             >
               <FileText size={20} />
               <span>All Bookings</span>
-              {pendingCount > 0 && (
+              {pendingBookings > 0 && (
                 <span className="ml-auto px-2 py-0.5 bg-orange-500 text-white text-xs rounded-full">
-                  {pendingCount}
+                  {pendingBookings}
                 </span>
               )}
             </Link>
@@ -196,129 +227,146 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
             <p className="text-gray-600 dark:text-gray-400">Welcome back! Here's what's happening with your events.</p>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-            {stats.map((stat, index) => (
-              <div
-                key={index}
-                className={`bg-gradient-to-br ${stat.bgGradient} border border-gray-200 dark:border-gray-700 rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all hover:scale-105 group`}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className={`p-3 bg-gradient-to-br ${stat.gradient} rounded-2xl shadow-lg group-hover:scale-110 transition-transform`}>
-                    <stat.icon className="text-white" size={24} />
-                  </div>
-                  <div className={`flex items-center gap-1 px-2 py-1 rounded-lg ${
-                    stat.trend === 'up' 
-                      ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400' 
-                      : 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400'
-                  }`}>
-                    {stat.trend === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                    <span className="text-xs">{stat.change}</span>
-                  </div>
-                </div>
-                <div className="text-3xl text-gray-900 dark:text-white mb-1">{stat.value}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-8">
-            {/* Recent Events */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 shadow-lg">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-gray-900 dark:text-white text-xl">Recent Events</h2>
-                <Link
-                  to="/admin/manage-competitions"
-                  className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 text-sm flex items-center gap-1"
-                >
-                  View All
-                  <ArrowUpRight size={16} />
-                </Link>
-              </div>
-              <div className="space-y-3">
-                {recentEvents.map((event) => (
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-gray-600 dark:text-gray-400">Loading dashboard data...</div>
+            </div>
+          ) : (
+            <>
+              {/* Stats Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+                {statsCards.map((stat, index) => (
                   <div
-                    key={event.id}
-                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors group"
+                    key={index}
+                    className={`bg-gradient-to-br ${stat.bgGradient} border border-gray-200 dark:border-gray-700 rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all hover:scale-105 group`}
                   >
-                    <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-purple-500 rounded-xl flex items-center justify-center text-white flex-shrink-0">
-                      <Trophy size={20} />
+                    <div className="flex items-start justify-between mb-4">
+                      <div className={`p-3 bg-gradient-to-br ${stat.gradient} rounded-2xl shadow-lg group-hover:scale-110 transition-transform`}>
+                        <stat.icon className="text-white" size={24} />
+                      </div>
+                      <div className={`flex items-center gap-1 px-2 py-1 rounded-lg ${
+                        stat.trend === 'up' 
+                          ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400' 
+                          : 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400'
+                      }`}>
+                        {stat.trend === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                        <span className="text-xs">{stat.change}</span>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-900 dark:text-white truncate group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                        {event.title}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{event.city}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Eye size={16} className="text-gray-400" />
-                      <span className="text-xs text-gray-600 dark:text-gray-400">245</span>
-                    </div>
+                    <div className="text-3xl text-gray-900 dark:text-white mb-1">{stat.value}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">{stat.label}</div>
                   </div>
                 ))}
               </div>
-            </div>
 
-            {/* Recent Bookings */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 shadow-lg">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-gray-900 dark:text-white text-xl">Recent Bookings</h2>
-                <Link
-                  to="/admin/manage-competitions"
-                  className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 text-sm flex items-center gap-1"
-                >
-                  View All
-                  <ArrowUpRight size={16} />
-                </Link>
-              </div>
-              <div className="space-y-3">
-                {recentSubmissions.map((submission) => {
-                  const event = mockEvents.find(e => e.id === submission.competitionId);
-                  const StatusIcon = submission.status === 'approved' ? CheckCircle : submission.status === 'rejected' ? XCircle : Clock;
-                  const statusColors = {
-                    approved: 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400',
-                    rejected: 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400',
-                    pending: 'bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-400'
-                  };
-
-                  return (
-                    <div
-                      key={submission.id}
-                      className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-8">
+                {/* Recent Events */}
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 shadow-lg">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-gray-900 dark:text-white text-xl">Recent Events</h2>
+                    <Link
+                      to="/admin/manage-competitions"
+                      className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 text-sm flex items-center gap-1"
                     >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-900 dark:text-white truncate">{event?.title}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">User #{submission.userId}</p>
-                      </div>
-                      <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${statusColors[submission.status]}`}>
-                        <StatusIcon size={14} />
-                        <span className="text-xs capitalize">{submission.status}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+                      View All
+                      <ArrowUpRight size={16} />
+                    </Link>
+                  </div>
+                  <div className="space-y-3">
+                    {recentEvents.length > 0 ? (
+                      recentEvents.map((event) => (
+                        <div
+                          key={event.id}
+                          className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors group"
+                        >
+                          <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-purple-500 rounded-xl flex items-center justify-center text-white flex-shrink-0">
+                            <Trophy size={20} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-900 dark:text-white truncate group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                              {event.title}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{event.city}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Eye size={16} className="text-gray-400" />
+                            <span className="text-xs text-gray-600 dark:text-gray-400">-</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-500 dark:text-gray-400 text-center py-4">No events found</p>
+                    )}
+                  </div>
+                </div>
 
-          {/* Activity Chart Placeholder */}
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 shadow-lg">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-gray-900 dark:text-white text-xl mb-1">Event Performance</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Bookings over the last 7 days</p>
+                {/* Recent Bookings */}
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 shadow-lg">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-gray-900 dark:text-white text-xl">Recent Bookings</h2>
+                    <Link
+                      to="/admin/bookings"
+                      className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 text-sm flex items-center gap-1"
+                    >
+                      View All
+                      <ArrowUpRight size={16} />
+                    </Link>
+                  </div>
+                  <div className="space-y-3">
+                    {recentBookings.length > 0 ? (
+                      recentBookings.map((booking) => {
+                        const StatusIcon = booking.booking_status === 'confirmed' ? CheckCircle : booking.booking_status === 'cancelled' ? XCircle : Clock;
+                        const statusColors = {
+                          confirmed: 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400',
+                          cancelled: 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400',
+                          pending: 'bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-400'
+                        };
+
+                        return (
+                          <div
+                            key={booking.id}
+                            className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-gray-900 dark:text-white truncate">{booking.event_name}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {booking.users?.name || 'User'}
+                              </p>
+                            </div>
+                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${statusColors[booking.booking_status as keyof typeof statusColors] || statusColors.pending}`}>
+                              <StatusIcon size={14} />
+                              <span className="text-xs capitalize">{booking.booking_status}</span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-gray-500 dark:text-gray-400 text-center py-4">No bookings found</p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                Last 7 Days
-              </button>
-            </div>
-            <div className="h-64 flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-2xl">
-              <div className="text-center">
-                <Activity className="mx-auto mb-3 text-purple-500" size={48} />
-                <p className="text-gray-600 dark:text-gray-400">Chart visualization would go here</p>
+
+              {/* Activity Chart Placeholder */}
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 shadow-lg">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-gray-900 dark:text-white text-xl mb-1">Event Performance</h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Bookings over the last 7 days</p>
+                  </div>
+                  <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                    Last 7 Days
+                  </button>
+                </div>
+                <div className="h-64 flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-2xl">
+                  <div className="text-center">
+                    <Activity className="mx-auto mb-3 text-purple-500" size={48} />
+                    <p className="text-gray-600 dark:text-gray-400">Analytics visualization</p>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
         </main>
       </div>
 

@@ -1,9 +1,10 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
 import { CompetitionCard } from '../components/CompetitionCard';
-import { mockCompetitions, getUserRegistrations, getUserSubmissions, getCompetitionById } from '../data/mockData';
-import { Calendar, FileText, Trophy, Settings } from 'lucide-react';
+import { supabase } from '../utils/supabaseClient';
+import { Calendar, FileText, Trophy, Settings, TrendingUp, Clock } from 'lucide-react';
 
 interface DashboardProps {
   user: any;
@@ -11,158 +12,227 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ user, onLogout }: DashboardProps) {
-  const registrations = getUserRegistrations(user.id);
-  const submissions = getUserSubmissions(user.id);
-  
-  const registeredCompetitions = registrations
-    .map(id => getCompetitionById(id))
-    .filter(Boolean);
+  const [events, setEvents] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const pendingSubmissions = registeredCompetitions.filter(comp => 
-    !submissions.some(sub => sub.competitionId === comp?.id)
-  );
+  useEffect(() => {
+    fetchData();
+  }, [user]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch active events
+      if (supabase) {
+        const { data: eventsData } = await supabase
+          .from('events')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+
+        if (eventsData) setEvents(eventsData);
+
+        // Fetch user's bookings
+        const { data: bookingsData } = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('booking_date', { ascending: false });
+
+        if (bookingsData) setBookings(bookingsData);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const registeredEventIds = bookings.map(b => b.event_id);
+  const registeredEvents = events.filter(e => registeredEventIds.includes(e.id));
+  const availableEvents = events.filter(e => !registeredEventIds.includes(e.id)).slice(0, 3);
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900">
       <Header user={user} onLogout={onLogout} />
       
-      <main className="flex-1 py-12 px-4 bg-gray-50">
+      <main className="flex-1 py-12 px-4">
         <div className="container mx-auto max-w-6xl">
           {/* Welcome Section */}
-          <div className="bg-white rounded-lg p-8 mb-8 shadow-sm border border-gray-200">
-            <h1 className="text-gray-900 mb-2">Welcome back, {user.name}!</h1>
-            <p className="text-gray-600">
-              Here's an overview of your competitions and submissions
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 mb-8 shadow-2xl">
+            <h1 className="text-white mb-2">Welcome back, {user.name}!</h1>
+            <p className="text-gray-200">
+              Here's an overview of your events and bookings
             </p>
           </div>
 
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-lg p-6 border border-gray-200">
+            <div className="bg-gradient-to-br from-pink-500/20 to-rose-500/20 backdrop-blur-xl border border-pink-500/30 rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all hover:scale-105">
               <div className="flex items-center gap-3 mb-2">
-                <Trophy className="text-blue-600" size={24} />
-                <span className="text-gray-600">Active Competitions</span>
+                <div className="p-3 bg-gradient-to-br from-pink-500 to-rose-500 rounded-2xl shadow-lg">
+                  <Trophy className="text-white" size={24} />
+                </div>
               </div>
-              <div className="text-gray-900">{mockCompetitions.length}</div>
+              <div className="text-3xl text-white mb-1">{events.length}</div>
+              <div className="text-sm text-gray-200">Available Events</div>
             </div>
 
-            <div className="bg-white rounded-lg p-6 border border-gray-200">
+            <div className="bg-gradient-to-br from-purple-500/20 to-violet-500/20 backdrop-blur-xl border border-purple-500/30 rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all hover:scale-105">
               <div className="flex items-center gap-3 mb-2">
-                <FileText className="text-green-600" size={24} />
-                <span className="text-gray-600">Registered</span>
+                <div className="p-3 bg-gradient-to-br from-purple-500 to-violet-500 rounded-2xl shadow-lg">
+                  <FileText className="text-white" size={24} />
+                </div>
               </div>
-              <div className="text-gray-900">{registrations.length}</div>
+              <div className="text-3xl text-white mb-1">{bookings.length}</div>
+              <div className="text-sm text-gray-200">My Bookings</div>
             </div>
 
-            <div className="bg-white rounded-lg p-6 border border-gray-200">
+            <div className="bg-gradient-to-br from-indigo-500/20 to-blue-500/20 backdrop-blur-xl border border-indigo-500/30 rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all hover:scale-105">
               <div className="flex items-center gap-3 mb-2">
-                <Calendar className="text-purple-600" size={24} />
-                <span className="text-gray-600">Submissions</span>
+                <div className="p-3 bg-gradient-to-br from-indigo-500 to-blue-500 rounded-2xl shadow-lg">
+                  <Calendar className="text-white" size={24} />
+                </div>
               </div>
-              <div className="text-gray-900">{submissions.length}</div>
+              <div className="text-3xl text-white mb-1">{registeredEvents.length}</div>
+              <div className="text-sm text-gray-200">Registered</div>
             </div>
 
-            <Link to="/account-settings" className="bg-white rounded-lg p-6 border border-gray-200 hover:border-blue-600 transition-colors">
+            <Link 
+              to="/account-settings" 
+              className="bg-gradient-to-br from-cyan-500/20 to-teal-500/20 backdrop-blur-xl border border-cyan-500/30 rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all hover:scale-105"
+            >
               <div className="flex items-center gap-3 mb-2">
-                <Settings className="text-gray-600" size={24} />
-                <span className="text-gray-600">Settings</span>
+                <div className="p-3 bg-gradient-to-br from-cyan-500 to-teal-500 rounded-2xl shadow-lg">
+                  <Settings className="text-white" size={24} />
+                </div>
               </div>
-              <div className="text-gray-900">Manage Account</div>
+              <div className="text-3xl text-white mb-1">Settings</div>
+              <div className="text-sm text-gray-200">Manage Account</div>
             </Link>
           </div>
 
-          {/* Pending Submissions Alert */}
-          {pendingSubmissions.length > 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
-              <h3 className="text-yellow-900 mb-2">Pending Submissions</h3>
-              <p className="text-yellow-800 mb-4">
-                You have {pendingSubmissions.length} competition(s) awaiting your submission
-              </p>
-              <div className="space-y-2">
-                {pendingSubmissions.map((comp) => (
-                  <div key={comp?.id} className="flex items-center justify-between bg-white rounded p-3">
-                    <div>
-                      <div className="text-gray-900">{comp?.title}</div>
-                      <div className="text-sm text-gray-600">Deadline: {comp?.deadline}</div>
+          {/* Quick Actions */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <Link
+              to="/competitions"
+              className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-xl hover:shadow-2xl hover:bg-white/15 transition-all hover:scale-105"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-gradient-to-br from-pink-500 to-purple-500 rounded-xl">
+                  <Trophy className="text-white" size={20} />
+                </div>
+                <h3 className="text-white">View Events</h3>
+              </div>
+              <p className="text-gray-200 text-sm">Browse all available events</p>
+            </Link>
+
+            <Link
+              to="/my-submissions"
+              className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-xl hover:shadow-2xl hover:bg-white/15 transition-all hover:scale-105"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl">
+                  <FileText className="text-white" size={20} />
+                </div>
+                <h3 className="text-white">My Bookings</h3>
+              </div>
+              <p className="text-gray-200 text-sm">View and manage your bookings</p>
+            </Link>
+
+            <Link
+              to="/account-settings"
+              className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-xl hover:shadow-2xl hover:bg-white/15 transition-all hover:scale-105"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-xl">
+                  <Settings className="text-white" size={20} />
+                </div>
+                <h3 className="text-white">Account Settings</h3>
+              </div>
+              <p className="text-gray-200 text-sm">Update your profile information</p>
+            </Link>
+          </div>
+
+          {/* Registered Events */}
+          {registeredEvents.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-gradient-to-br from-pink-500 to-purple-500 rounded-xl">
+                  <TrendingUp className="text-white" size={24} />
+                </div>
+                <h2 className="text-white text-2xl">Your Registered Events</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {registeredEvents.map((event) => (
+                  <div key={event.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all hover:scale-105">
+                    {event.image_url && (
+                      <img 
+                        src={event.image_url} 
+                        alt={event.title}
+                        className="w-full h-48 object-cover rounded-2xl mb-4"
+                      />
+                    )}
+                    <div className="inline-block px-3 py-1 bg-gradient-to-r from-pink-500 to-purple-500 text-white text-xs rounded-full mb-3">
+                      {event.category}
                     </div>
-                    <Link
-                      to={`/submission/${comp?.id}`}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Submit Work
-                    </Link>
+                    <h3 className="text-white mb-2 line-clamp-2">{event.title}</h3>
+                    <p className="text-gray-200 text-sm mb-4 line-clamp-2">{event.description}</p>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-300">{event.event_date}</span>
+                      <span className="text-pink-400 font-semibold">{event.price}</span>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Link
-              to="/competitions"
-              className="bg-white rounded-lg p-6 border border-gray-200 hover:border-blue-600 hover:shadow-md transition-all"
-            >
-              <h3 className="text-gray-900 mb-2">View Competitions</h3>
-              <p className="text-gray-600">Browse all available competitions</p>
-            </Link>
-
-            <Link
-              to="/my-submissions"
-              className="bg-white rounded-lg p-6 border border-gray-200 hover:border-blue-600 hover:shadow-md transition-all"
-            >
-              <h3 className="text-gray-900 mb-2">My Submissions</h3>
-              <p className="text-gray-600">View and manage your submissions</p>
-            </Link>
-
-            <Link
-              to="/account-settings"
-              className="bg-white rounded-lg p-6 border border-gray-200 hover:border-blue-600 hover:shadow-md transition-all"
-            >
-              <h3 className="text-gray-900 mb-2">Account Settings</h3>
-              <p className="text-gray-600">Update your profile information</p>
-            </Link>
-          </div>
-
-          {/* Registered Competitions */}
-          {registeredCompetitions.length > 0 && (
-            <div className="mb-8">
-              <h2 className="text-gray-900 mb-6">Your Registered Competitions</h2>
+          {/* Available Events */}
+          {availableEvents.length > 0 && (
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl">
+                  <Clock className="text-white" size={24} />
+                </div>
+                <h2 className="text-white text-2xl">Available Events</h2>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {registeredCompetitions.map((comp) => (
-                  comp && (
-                    <CompetitionCard
-                      key={comp.id}
-                      id={comp.id}
-                      title={comp.title}
-                      category={comp.category}
-                      description={comp.description}
-                      deadline={comp.deadline}
-                      prize={comp.prize}
-                    />
-                  )
+                {availableEvents.map((event) => (
+                  <Link 
+                    key={event.id} 
+                    to={`/competition/${event.id}`}
+                    className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all hover:scale-105"
+                  >
+                    {event.image_url && (
+                      <img 
+                        src={event.image_url} 
+                        alt={event.title}
+                        className="w-full h-48 object-cover rounded-2xl mb-4"
+                      />
+                    )}
+                    <div className="inline-block px-3 py-1 bg-gradient-to-r from-pink-500 to-purple-500 text-white text-xs rounded-full mb-3">
+                      {event.category}
+                    </div>
+                    <h3 className="text-white mb-2 line-clamp-2">{event.title}</h3>
+                    <p className="text-gray-200 text-sm mb-4 line-clamp-2">{event.description}</p>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-300">{event.event_date}</span>
+                      <span className="text-pink-400 font-semibold">{event.price}</span>
+                    </div>
+                  </Link>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Available Competitions */}
-          <div>
-            <h2 className="text-gray-900 mb-6">Available Competitions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {mockCompetitions.slice(0, 3).map((comp) => (
-                <CompetitionCard
-                  key={comp.id}
-                  id={comp.id}
-                  title={comp.title}
-                  category={comp.category}
-                  description={comp.description}
-                  deadline={comp.deadline}
-                  prize={comp.prize}
-                />
-              ))}
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-white text-lg">Loading your dashboard...</div>
             </div>
-          </div>
+          )}
         </div>
       </main>
       

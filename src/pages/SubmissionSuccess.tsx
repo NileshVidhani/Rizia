@@ -1,100 +1,59 @@
-import { useLocation, Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
-import { CheckCircle, Clock } from 'lucide-react';
+import { Info } from 'lucide-react';
 
 interface SubmissionSuccessProps {
   user: any;
 }
 
 export default function SubmissionSuccess({ user }: SubmissionSuccessProps) {
-  const location = useLocation();
-  const submission = location.state?.submission;
+  const navigate = useNavigate();
 
-  if (!submission) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Header user={user} />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-gray-900 mb-4">No Submission Found</h1>
-            <Link to="/dashboard" className="text-blue-600 hover:text-blue-700">
-              Go to Dashboard
-            </Link>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  useEffect(() => {
+    // Redirect to bookings page after 3 seconds
+    const timer = setTimeout(() => {
+      navigate('/my-submissions');
+    }, 3000);
 
-  const formatDate = (isoString: string) => {
-    const date = new Date(isoString);
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+    return () => clearTimeout(timer);
+  }, [navigate]);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900">
       <Header user={user} />
       
-      <main className="flex-1 flex items-center justify-center py-12 px-4 bg-gray-50">
+      <main className="flex-1 flex items-center justify-center py-12 px-4">
         <div className="w-full max-w-2xl">
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-8 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-6">
-              <CheckCircle className="text-green-600" size={32} />
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 md:p-12 text-center shadow-2xl">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-500/20 backdrop-blur-lg border border-blue-500/30 rounded-full mb-6">
+              <Info className="text-blue-300" size={40} />
             </div>
 
-            <h1 className="text-gray-900 mb-4">Submission Successful!</h1>
+            <h1 className="text-white mb-4">Redirecting...</h1>
             
-            <p className="text-gray-600 mb-8">
-              Your submission has been successfully uploaded and is now under review.
+            <p className="text-gray-200 mb-8 text-lg">
+              This page is being redirected to your bookings page.
             </p>
 
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8 text-left">
-              <h3 className="text-gray-900 mb-4">Submission Details</h3>
-              
-              <div className="space-y-3">
-                <div>
-                  <span className="text-gray-600">Competition:</span>
-                  <p className="text-gray-900">{submission.competitionName}</p>
-                </div>
-
-                <div>
-                  <span className="text-gray-600">Title:</span>
-                  <p className="text-gray-900">{submission.title}</p>
-                </div>
-
-                {submission.description && (
-                  <div>
-                    <span className="text-gray-600">Description:</span>
-                    <p className="text-gray-900">{submission.description}</p>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Clock size={16} />
-                  <span>Submitted: {formatDate(submission.timestamp)}</span>
-                </div>
-              </div>
+            <div className="bg-blue-500/20 backdrop-blur-lg border border-blue-500/30 rounded-2xl p-4 mb-8">
+              <p className="text-blue-200 text-sm">
+                You'll be automatically redirected to your bookings in a moment, or you can click the button below.
+              </p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <Link
                 to="/my-submissions"
-                className="block w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="block w-full py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white rounded-xl hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl"
               >
-                View My Submissions
+                View My Bookings
               </Link>
 
               <Link
                 to="/dashboard"
-                className="block w-full py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                className="block w-full py-4 bg-white/10 backdrop-blur-lg border border-white/20 text-white rounded-xl hover:bg-white/20 transition-all"
               >
                 Go to Dashboard
               </Link>

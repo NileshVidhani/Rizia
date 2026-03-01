@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -6,7 +6,6 @@ import {
   Users, 
   FileText, 
   LogOut,
-  Settings,
   Bell,
   Search,
   BarChart3,
@@ -15,30 +14,45 @@ import {
   CheckCircle,
   Clock,
   XCircle,
-  Eye,
   Calendar,
-  Mail,
-  Phone,
-  MapPin
+  MapPin,
+  IndianRupee
 } from 'lucide-react';
 import { RiziaLogo } from '../../components/RiziaLogo';
-import { getAllSubmissions, getEventById } from '../../data/mockData';
 import { AdminMobileNav } from '../../components/AdminMobileNav';
+import { fetchAllBookings } from '../../utils/supabaseHelpers';
 
 interface AllBookingsProps {
   onLogout: () => void;
 }
 
 export default function AllBookings({ onLogout }: AllBookingsProps) {
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const allSubmissions = getAllSubmissions();
 
-  const filteredSubmissions = allSubmissions.filter(submission => {
-    const event = getEventById(submission.competitionId);
-    const matchesSearch = event?.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         submission.userId.includes(searchQuery);
-    const matchesStatus = statusFilter === 'All' || submission.status === statusFilter.toLowerCase();
+  useEffect(() => {
+    loadBookings();
+  }, []);
+
+  const loadBookings = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchAllBookings();
+      setBookings(data);
+    } catch (error) {
+      console.error('Error loading bookings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredBookings = bookings.filter(booking => {
+    const matchesSearch = booking.event_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         booking.users?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         booking.users?.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'All' || booking.booking_status === statusFilter.toLowerCase();
     
     return matchesSearch && matchesStatus;
   });
@@ -46,43 +60,51 @@ export default function AllBookings({ onLogout }: AllBookingsProps) {
   const stats = [
     {
       label: 'Total Bookings',
-      value: allSubmissions.length,
-      change: '+12%',
+      value: bookings.length,
       color: 'from-blue-500 to-cyan-500'
     },
     {
-      label: 'Approved',
-      value: allSubmissions.filter(s => s.status === 'approved').length,
-      change: '+8%',
+      label: 'Confirmed',
+      value: bookings.filter(b => b.booking_status === 'confirmed').length,
       color: 'from-green-500 to-emerald-500'
     },
     {
       label: 'Pending',
-      value: allSubmissions.filter(s => s.status === 'pending').length,
-      change: '-5%',
+      value: bookings.filter(b => b.booking_status === 'pending').length,
       color: 'from-orange-500 to-amber-500'
     },
     {
-      label: 'Rejected',
-      value: allSubmissions.filter(s => s.status === 'rejected').length,
-      change: '0%',
+      label: 'Cancelled',
+      value: bookings.filter(b => b.booking_status === 'cancelled').length,
       color: 'from-red-500 to-rose-500'
     }
   ];
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'approved': return CheckCircle;
-      case 'rejected': return XCircle;
+      case 'confirmed': return CheckCircle;
+      case 'cancelled': return XCircle;
       default: return Clock;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'approved': return 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400';
-      case 'rejected': return 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400';
+      case 'confirmed': return 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400';
+      case 'cancelled': return 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400';
       default: return 'bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-400';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return dateString;
     }
   };
 
@@ -110,7 +132,7 @@ export default function AllBookings({ onLogout }: AllBookingsProps) {
               </button>
             </div>
           </div>
-          
+
           {/* Mobile Search Bar */}
           <div className="mt-3 md:hidden">
             <div className="relative w-full">
@@ -188,215 +210,187 @@ export default function AllBookings({ onLogout }: AllBookingsProps) {
         {/* Main Content */}
         <main className="flex-1 p-4 md:p-6 pb-20 lg:pb-6">
           {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-gray-900 dark:text-white text-2xl sm:text-3xl mb-2">All Bookings</h1>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">Manage and review all event bookings</p>
-          </div>
+          <div className="mb-6 md:mb-8">
+            <div className="mb-6">
+              <h1 className="text-gray-900 dark:text-white text-2xl sm:text-3xl mb-2">All Bookings</h1>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">View and manage all event bookings</p>
+            </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-                <div className={`w-12 h-12 bg-gradient-to-br ${stat.color} rounded-2xl flex items-center justify-center mb-4`}>
-                  <FileText className="text-white" size={24} />
-                </div>
-                <div className="text-3xl text-gray-900 dark:text-white mb-1">{stat.value}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 mb-6">
-            <div className="flex flex-wrap gap-2">
-              {['All', 'Pending', 'Approved', 'Rejected'].map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setStatusFilter(status)}
-                  className={`px-3 sm:px-4 py-2 rounded-xl transition-all text-sm ${
-                    statusFilter === status
-                      ? 'bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white shadow-lg'
-                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              {stats.map((stat, index) => (
+                <div
+                  key={index}
+                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-6 shadow-lg"
                 >
-                  {status}
-                </button>
+                  <div className={`inline-flex p-3 bg-gradient-to-br ${stat.color} rounded-2xl shadow-lg mb-3`}>
+                    <FileText className="text-white" size={24} />
+                  </div>
+                  <div className="text-3xl text-gray-900 dark:text-white mb-1">{stat.value}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">{stat.label}</div>
+                </div>
               ))}
             </div>
-            <button className="sm:ml-auto flex items-center justify-center gap-2 px-4 sm:px-6 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all text-sm">
-              <Download size={18} />
-              <span>Export</span>
-            </button>
+
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
+              <div className="flex-1 min-w-[200px] hidden md:block">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search bookings..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 text-gray-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 text-gray-900 dark:text-white appearance-none cursor-pointer"
+                  >
+                    <option value="All">All Status</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="pending">Pending</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              </div>
+
+              <button className="flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">
+                <Download size={18} />
+                <span>Export</span>
+              </button>
+            </div>
           </div>
 
           {/* Bookings Table */}
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-            {/* Mobile Card View */}
-            <div className="lg:hidden p-4 space-y-4">
-              {filteredSubmissions.map((submission) => {
-                const event = getEventById(submission.competitionId);
-                const StatusIcon = getStatusIcon(submission.status);
-
-                return (
-                  <div key={submission.id} className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-md">
-                    {/* Booking Header */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm text-gray-500 dark:text-gray-400">#{submission.id.substring(0, 8)}</span>
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs ${getStatusColor(submission.status)}`}>
-                            <StatusIcon size={12} />
-                            <span className="capitalize">{submission.status}</span>
-                          </span>
-                        </div>
-                        <h3 className="text-gray-900 dark:text-white mb-1">{event?.title}</h3>
-                      </div>
-                    </div>
-
-                    {/* Booking Details */}
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                        <MapPin size={14} />
-                        <span>{event?.city}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                        <Calendar size={14} />
-                        <span>{new Date(submission.submittedAt).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                        <Mail size={14} />
-                        <span>user@example.com</span>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <Link
-                        to={`/admin/review-submissions/${submission.competitionId}`}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all text-sm"
-                      >
-                        <Eye size={16} />
-                        <span>View</span>
-                      </Link>
-                      {submission.status === 'pending' && (
-                        <>
-                          <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors text-sm">
-                            <CheckCircle size={16} />
-                            <span>Approve</span>
-                          </button>
-                          <button className="p-2 bg-red-50 dark:bg-red-950/30 text-red-500 rounded-xl hover:bg-red-100 dark:hover:bg-red-950/50 transition-all">
-                            <XCircle size={18} />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-gray-600 dark:text-gray-400">Loading bookings...</div>
             </div>
-
-            {/* Desktop Table View */}
-            <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-400">Booking ID</th>
-                    <th className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-400">Event</th>
-                    <th className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-400">User</th>
-                    <th className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-400">Date</th>
-                    <th className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-400">Status</th>
-                    <th className="px-6 py-4 text-right text-sm text-gray-600 dark:text-gray-400">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredSubmissions.map((submission) => {
-                    const event = getEventById(submission.competitionId);
-                    const StatusIcon = getStatusIcon(submission.status);
-
-                    return (
-                      <tr key={submission.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                        <td className="px-6 py-4">
-                          <span className="text-gray-900 dark:text-white">#{submission.id.substring(0, 8)}</span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="min-w-0">
-                            <p className="text-gray-900 dark:text-white truncate">{event?.title}</p>
-                            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-1">
-                              <MapPin size={12} />
-                              <span>{event?.city}</span>
+          ) : filteredBookings.length === 0 ? (
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 p-12 text-center">
+              <FileText className="mx-auto mb-4 text-gray-400" size={48} />
+              <h3 className="text-gray-900 dark:text-white mb-2">No bookings found</h3>
+              <p className="text-gray-600 dark:text-gray-400">No bookings match your search criteria</p>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+              {/* Desktop Table View */}
+              <div className="hidden lg:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+                      <th className="px-6 py-4 text-left text-sm text-gray-900 dark:text-white">Event</th>
+                      <th className="px-6 py-4 text-left text-sm text-gray-900 dark:text-white">Customer</th>
+                      <th className="px-6 py-4 text-left text-sm text-gray-900 dark:text-white">Date</th>
+                      <th className="px-6 py-4 text-left text-sm text-gray-900 dark:text-white">Tickets</th>
+                      <th className="px-6 py-4 text-left text-sm text-gray-900 dark:text-white">Amount</th>
+                      <th className="px-6 py-4 text-left text-sm text-gray-900 dark:text-white">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredBookings.map((booking, index) => {
+                      const StatusIcon = getStatusIcon(booking.booking_status);
+                      
+                      return (
+                        <tr
+                          key={booking.id}
+                          className={`border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors ${
+                            index % 2 === 0 ? '' : 'bg-gray-50/50 dark:bg-gray-900/20'
+                          }`}
+                        >
+                          <td className="px-6 py-4">
+                            <div>
+                              <p className="text-gray-900 dark:text-white">{booking.event_name}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">{booking.city}</p>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm">
-                            <div className="text-gray-900 dark:text-white">User #{submission.userId}</div>
-                            <div className="text-gray-500 dark:text-gray-400">user@example.com</div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2 text-gray-900 dark:text-white text-sm">
-                            <Calendar size={14} className="text-gray-400" />
-                            <span>{new Date(submission.submittedAt).toLocaleDateString()}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm ${getStatusColor(submission.status)}`}>
-                            <StatusIcon size={14} />
-                            <span className="capitalize">{submission.status}</span>
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-end gap-2">
-                            <Link
-                              to={`/admin/review-submissions/${submission.competitionId}`}
-                              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                              title="View Details"
-                            >
-                              <Eye size={18} className="text-gray-600 dark:text-gray-400" />
-                            </Link>
-                            {submission.status === 'pending' && (
-                              <>
-                                <button
-                                  className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm"
-                                  title="Approve"
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  className="px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
-                                  title="Reject"
-                                >
-                                  Reject
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div>
+                              <p className="text-gray-900 dark:text-white">{booking.users?.name || 'N/A'}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">{booking.users?.email || 'N/A'}</p>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                              <Calendar size={16} />
+                              <span className="text-sm">{formatDate(booking.booking_date)}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-gray-900 dark:text-white">{booking.ticket_quantity}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-1 text-gray-900 dark:text-white">
+                              <IndianRupee size={16} />
+                              <span>{parseFloat(booking.total_price).toFixed(2)}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${getStatusColor(booking.booking_status)}`}>
+                              <StatusIcon size={14} />
+                              <span className="text-xs capitalize">{booking.booking_status}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-            {/* Pagination */}
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Showing {filteredSubmissions.length} bookings
-              </p>
-              <div className="flex gap-2">
-                <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                  Previous
-                </button>
-                <button className="px-4 py-2 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white rounded-lg hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600 transition-all">
-                  1
-                </button>
-                <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                  Next
-                </button>
+              {/* Mobile Card View */}
+              <div className="lg:hidden p-4 space-y-4">
+                {filteredBookings.map((booking) => {
+                  const StatusIcon = getStatusIcon(booking.booking_status);
+                  
+                  return (
+                    <div
+                      key={booking.id}
+                      className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-700 p-4"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="text-gray-900 dark:text-white mb-1">{booking.event_name}</h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{booking.users?.name || 'N/A'}</p>
+                        </div>
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${getStatusColor(booking.booking_status)}`}>
+                          <StatusIcon size={14} />
+                          <span className="text-xs capitalize">{booking.booking_status}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                          <Calendar size={16} />
+                          <span>{formatDate(booking.booking_date)}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                          <MapPin size={16} />
+                          <span>{booking.city}</span>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">{booking.ticket_quantity} ticket(s)</span>
+                          <div className="flex items-center gap-1 text-gray-900 dark:text-white font-semibold">
+                            <IndianRupee size={16} />
+                            <span>{parseFloat(booking.total_price).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          </div>
+          )}
         </main>
       </div>
 

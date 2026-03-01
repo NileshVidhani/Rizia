@@ -1,7 +1,8 @@
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
-import { getEventById, isUserRegistered, registerForEvent } from '../data/mockData';
+import { fetchEventById } from '../utils/supabaseHelpers';
 import { Calendar, Award, CheckCircle, ArrowLeft, MapPin, Clock, Ticket, Users, Shield, Heart } from 'lucide-react';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 
@@ -12,9 +13,40 @@ interface CompetitionDetailsProps {
 export default function CompetitionDetails({ user }: CompetitionDetailsProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const event = id ? getEventById(id) : null;
+  const [event, setEvent] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   
-  const isRegistered = user && id ? isUserRegistered(user.id, id) : false;
+  useEffect(() => {
+    if (id) {
+      loadEvent(id);
+    }
+  }, [id]);
+
+  const loadEvent = async (eventId: string) => {
+    try {
+      setLoading(true);
+      const data = await fetchEventById(eventId);
+      setEvent(data);
+    } catch (error) {
+      console.error('Error loading event:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const isRegistered = false; // We can enhance this later with actual booking check
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900">
+        <Header user={user} />
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="text-white text-xl">Loading event...</div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!event) {
     return (
@@ -82,10 +114,10 @@ export default function CompetitionDetails({ user }: CompetitionDetailsProps) {
           </button>
 
           {/* Event Image Hero */}
-          {event.image && (
+          {event.image_url && (
             <div className="relative h-96 rounded-3xl overflow-hidden mb-8 shadow-2xl">
               <ImageWithFallback 
-                src={event.image}
+                src={event.image_url}
                 alt={event.title}
                 className="w-full h-full object-cover"
               />
@@ -106,11 +138,11 @@ export default function CompetitionDetails({ user }: CompetitionDetailsProps) {
                 <div className="flex flex-wrap gap-4 text-white">
                   <div className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-md rounded-lg">
                     <Calendar size={18} />
-                    <span>{event.date}</span>
+                    <span>{event.event_date}</span>
                   </div>
                   <div className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-md rounded-lg">
                     <Clock size={18} />
-                    <span>{event.time}</span>
+                    <span>{event.event_time}</span>
                   </div>
                   <div className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-md rounded-lg">
                     <MapPin size={18} />
@@ -127,7 +159,7 @@ export default function CompetitionDetails({ user }: CompetitionDetailsProps) {
               {/* Description */}
               <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-lg border border-gray-100 dark:border-gray-700">
                 <h2 className="text-gray-900 dark:text-white mb-4 text-2xl">About This Event</h2>
-                <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">{event.fullDescription}</p>
+                <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">{event.full_description || event.description}</p>
               </div>
 
               {/* Venue Details */}
@@ -138,7 +170,7 @@ export default function CompetitionDetails({ user }: CompetitionDetailsProps) {
                     <MapPin className="text-purple-500 dark:text-purple-400 mt-1 flex-shrink-0" size={20} />
                     <div>
                       <p className="text-gray-900 dark:text-white">{event.venue}</p>
-                      <p className="text-gray-600 dark:text-gray-400 text-sm">{event.venueAddress}</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm">{event.venue_address}</p>
                     </div>
                   </div>
                 </div>
@@ -231,14 +263,14 @@ export default function CompetitionDetails({ user }: CompetitionDetailsProps) {
                       </div>
                     </div>
                   )}
-                  {event.ageRestriction && (
+                  {event.age_restriction && (
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white">
                         <Users size={20} />
                       </div>
                       <div>
                         <p className="text-sm text-gray-600 dark:text-gray-400">Age Restriction</p>
-                        <p className="text-gray-900 dark:text-white">{event.ageRestriction}</p>
+                        <p className="text-gray-900 dark:text-white">{event.age_restriction}</p>
                       </div>
                     </div>
                   )}

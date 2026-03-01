@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -6,39 +6,91 @@ import {
   Users, 
   FileText, 
   LogOut,
-  Settings,
   Bell,
-  Search,
-  BarChart3,
   Plus,
   Edit,
   Trash2,
-  Eye,
   Calendar,
   MapPin,
-  IndianRupee,
   Filter,
   Download,
-  MoreVertical
+  X,
+  BarChart3
 } from 'lucide-react';
 import { RiziaLogo } from '../../components/RiziaLogo';
-import { mockEvents } from '../../data/mockData';
 import { AdminMobileNav } from '../../components/AdminMobileNav';
+import { fetchAllEvents, createEvent, updateEvent, deleteEvent } from '../../utils/supabaseHelpers';
+import { toast } from 'sonner@2.0.3';
 
 interface ManageCompetitionsProps {
   onLogout: () => void;
 }
 
+interface EventFormData {
+  title: string;
+  category: string;
+  description: string;
+  full_description: string;
+  city: string;
+  venue: string;
+  venue_address: string;
+  event_date: string;
+  event_time: string;
+  price: string;
+  image_url: string;
+  tags: string;
+  language: string;
+  age_restriction: string;
+  features: string;
+}
+
 export default function ManageCompetitions({ onLogout }: ManageCompetitionsProps) {
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedCity, setSelectedCity] = useState('All');
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<any>(null);
+  const [formData, setFormData] = useState<EventFormData>({
+    title: '',
+    category: 'Concert',
+    description: '',
+    full_description: '',
+    city: 'Mumbai',
+    venue: '',
+    venue_address: '',
+    event_date: '',
+    event_time: '',
+    price: '',
+    image_url: '',
+    tags: '',
+    language: '',
+    age_restriction: '',
+    features: ''
+  });
 
-  const categories = ['All', 'Concert', 'Comedy', 'Dance', 'Art', 'Literature', 'Festival'];
-  const cities = ['All', 'Mumbai', 'Delhi', 'Bengaluru', 'Hyderabad', 'Chennai', 'Kolkata'];
+  const categories = ['All', 'Concert', 'Comedy', 'Dance', 'Art', 'Literature', 'Festival', 'Music', 'Music Festival'];
+  const cities = ['All', 'Mumbai', 'Delhi', 'Bengaluru', 'Hyderabad', 'Chennai', 'Kolkata', 'New Delhi', 'Pune', 'Ahmedabad', 'Jaipur'];
 
-  const filteredEvents = mockEvents.filter(event => {
+  useEffect(() => {
+    loadEvents();
+  }, []);
+
+  const loadEvents = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchAllEvents();
+      setEvents(data);
+    } catch (error) {
+      console.error('Error loading events:', error);
+      toast.error('Failed to load events');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredEvents = events.filter(event => {
     const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          event.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || event.category === selectedCategory;
@@ -47,6 +99,94 @@ export default function ManageCompetitions({ onLogout }: ManageCompetitionsProps
     return matchesSearch && matchesCategory && matchesCity;
   });
 
+  const handleOpenModal = (event?: any) => {
+    if (event) {
+      setEditingEvent(event);
+      setFormData({
+        title: event.title || '',
+        category: event.category || 'Concert',
+        description: event.description || '',
+        full_description: event.full_description || '',
+        city: event.city || 'Mumbai',
+        venue: event.venue || '',
+        venue_address: event.venue_address || '',
+        event_date: event.event_date || '',
+        event_time: event.event_time || '',
+        price: event.price || '',
+        image_url: event.image_url || '',
+        tags: Array.isArray(event.tags) ? event.tags.join(', ') : '',
+        language: event.language || '',
+        age_restriction: event.age_restriction || '',
+        features: Array.isArray(event.features) ? event.features.join(', ') : ''
+      });
+    } else {
+      setEditingEvent(null);
+      setFormData({
+        title: '',
+        category: 'Concert',
+        description: '',
+        full_description: '',
+        city: 'Mumbai',
+        venue: '',
+        venue_address: '',
+        event_date: '',
+        event_time: '',
+        price: '',
+        image_url: '',
+        tags: '',
+        language: '',
+        age_restriction: '',
+        features: ''
+      });
+    }
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditingEvent(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const eventData = {
+        ...formData,
+        tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
+        features: formData.features.split(',').map(f => f.trim()).filter(Boolean),
+        is_active: true
+      };
+
+      if (editingEvent) {
+        await updateEvent(editingEvent.id, eventData);
+        toast.success('Event updated successfully!');
+      } else {
+        await createEvent(eventData);
+        toast.success('Event created successfully!');
+      }
+
+      handleCloseModal();
+      loadEvents();
+    } catch (error) {
+      console.error('Error saving event:', error);
+      toast.error('Failed to save event');
+    }
+  };
+
+  const handleDelete = async (eventId: string, eventTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${eventTitle}"?`)) return;
+
+    try {
+      await deleteEvent(eventId);
+      toast.success('Event deleted successfully!');
+      loadEvents();
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      toast.error('Failed to delete event');
+    }
+  };
+
   const getCategoryColor = (category: string) => {
     const colors: { [key: string]: string } = {
       'Concert': 'from-pink-500 to-rose-500',
@@ -54,7 +194,9 @@ export default function ManageCompetitions({ onLogout }: ManageCompetitionsProps
       'Dance': 'from-purple-500 to-violet-500',
       'Art': 'from-cyan-500 to-blue-500',
       'Literature': 'from-green-500 to-emerald-500',
-      'Festival': 'from-indigo-500 to-purple-500'
+      'Festival': 'from-indigo-500 to-purple-500',
+      'Music': 'from-pink-500 to-purple-500',
+      'Music Festival': 'from-fuchsia-500 to-pink-500'
     };
     return colors[category] || 'from-gray-500 to-gray-600';
   };
@@ -81,20 +223,6 @@ export default function ManageCompetitions({ onLogout }: ManageCompetitionsProps
                 <LogOut size={16} className="md:w-[18px] md:h-[18px]" />
                 <span className="hidden sm:inline text-sm">Logout</span>
               </button>
-            </div>
-          </div>
-          
-          {/* Mobile Search Bar */}
-          <div className="mt-3 md:hidden">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
-              <input
-                type="text"
-                placeholder="Search events..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 transition-all"
-              />
             </div>
           </div>
         </div>
@@ -168,7 +296,7 @@ export default function ManageCompetitions({ onLogout }: ManageCompetitionsProps
                 <p className="text-gray-600 dark:text-gray-400 text-sm">Create, edit, and manage all your events</p>
               </div>
               <button
-                onClick={() => setShowAddModal(true)}
+                onClick={() => handleOpenModal()}
                 className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white rounded-xl hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl text-sm whitespace-nowrap"
               >
                 <Plus size={18} className="sm:w-5 sm:h-5" />
@@ -207,189 +335,314 @@ export default function ManageCompetitions({ onLogout }: ManageCompetitionsProps
                   </select>
                 </div>
               </div>
-
-              <button className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all text-sm">
-                <Download size={18} />
-                <span>Export</span>
-              </button>
             </div>
           </div>
 
-          {/* Events Table */}
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-            {/* Mobile Card View */}
-            <div className="lg:hidden p-4 space-y-4">
+          {/* Events Grid */}
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-gray-600 dark:text-gray-400">Loading events...</div>
+            </div>
+          ) : filteredEvents.length === 0 ? (
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 p-12 text-center">
+              <Trophy className="mx-auto mb-4 text-gray-400" size={48} />
+              <h3 className="text-gray-900 dark:text-white mb-2">No events found</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">Get started by creating your first event</p>
+              <button
+                onClick={() => handleOpenModal()}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white rounded-xl hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600 transition-all shadow-lg"
+              >
+                <Plus size={20} />
+                <span>Add New Event</span>
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredEvents.map((event) => (
-                <div key={event.id} className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-md">
-                  {/* Event Header */}
-                  <div className="flex items-start gap-3 mb-4">
-                    <div className={`w-14 h-14 bg-gradient-to-br ${getCategoryColor(event.category)} rounded-xl flex items-center justify-center text-white flex-shrink-0`}>
-                      <Trophy size={22} />
+                <div key={event.id} className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-xl transition-all">
+                  {event.image_url && (
+                    <img 
+                      src={event.image_url} 
+                      alt={event.title}
+                      className="w-full h-48 object-cover"
+                    />
+                  )}
+                  <div className="p-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className={`inline-flex px-3 py-1 bg-gradient-to-r ${getCategoryColor(event.category)} text-white rounded-full text-xs`}>
+                        {event.category}
+                      </span>
+                      <span className="inline-flex px-3 py-1 bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400 rounded-full text-xs">
+                        Active
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-gray-900 dark:text-white mb-1">{event.title}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">{event.description}</p>
+                    
+                    <h3 className="text-gray-900 dark:text-white mb-2 line-clamp-2">{event.title}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">{event.description}</p>
+                    
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                        <Calendar size={16} />
+                        <span>{event.event_date}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                        <MapPin size={16} />
+                        <span>{event.city}</span>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Category Badge */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className={`inline-flex px-3 py-1 bg-gradient-to-r ${getCategoryColor(event.category)} text-white rounded-full text-sm`}>
-                      {event.category}
-                    </span>
-                    <span className="inline-flex px-3 py-1 bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400 rounded-full text-sm">
-                      Active
-                    </span>
-                  </div>
-
-                  {/* Event Details */}
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                      <Calendar size={16} />
-                      <span>{event.date} • {event.time}</span>
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <span className="text-purple-600 dark:text-purple-400 font-semibold">{event.price}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleOpenModal(event)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950 rounded-lg transition-colors"
+                        >
+                          <Edit size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(event.id, event.title)}
+                          className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                      <MapPin size={16} />
-                      <span>{event.city}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
-                      <IndianRupee size={16} />
-                      <span className="font-semibold">{event.price}</span>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <Link
-                      to={`/competition/${event.id}`}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all text-sm"
-                    >
-                      <Eye size={16} />
-                      <span>View</span>
-                    </Link>
-                    <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white rounded-xl hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600 transition-all text-sm">
-                      <Edit size={16} />
-                      <span>Edit</span>
-                    </button>
-                    <button className="p-2 bg-red-50 dark:bg-red-950/30 text-red-500 rounded-xl hover:bg-red-100 dark:hover:bg-red-950/50 transition-all">
-                      <Trash2 size={18} />
-                    </button>
                   </div>
                 </div>
               ))}
             </div>
-
-            {/* Desktop Table View */}
-            <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-400">Event</th>
-                    <th className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-400">Category</th>
-                    <th className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-400">Date & Time</th>
-                    <th className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-400">Location</th>
-                    <th className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-400">Price</th>
-                    <th className="px-6 py-4 text-left text-sm text-gray-600 dark:text-gray-400">Status</th>
-                    <th className="px-6 py-4 text-right text-sm text-gray-600 dark:text-gray-400">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredEvents.map((event) => (
-                    <tr key={event.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-12 h-12 bg-gradient-to-br ${getCategoryColor(event.category)} rounded-xl flex items-center justify-center text-white flex-shrink-0`}>
-                            <Trophy size={20} />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-gray-900 dark:text-white truncate">{event.title}</p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{event.description.substring(0, 40)}...</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex px-3 py-1 bg-gradient-to-r ${getCategoryColor(event.category)} text-white rounded-full text-sm`}>
-                          {event.category}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm">
-                          <div className="flex items-center gap-2 text-gray-900 dark:text-white mb-1">
-                            <Calendar size={14} />
-                            <span>{event.date}</span>
-                          </div>
-                          <div className="text-gray-500 dark:text-gray-400">{event.time}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2 text-gray-900 dark:text-white">
-                          <MapPin size={14} className="text-gray-400" />
-                          <span>{event.city}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-1 text-gray-900 dark:text-white">
-                          <IndianRupee size={14} />
-                          <span>{event.price.replace('₹', '')}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex px-3 py-1 bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400 rounded-full text-sm">
-                          Active
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <Link
-                            to={`/competition/${event.id}`}
-                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                            title="View"
-                          >
-                            <Eye size={18} className="text-gray-600 dark:text-gray-400" />
-                          </Link>
-                          <button
-                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                            title="Edit"
-                          >
-                            <Edit size={18} className="text-gray-600 dark:text-gray-400" />
-                          </button>
-                          <button
-                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 size={18} className="text-red-500" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Showing {filteredEvents.length} of {mockEvents.length} events
-              </p>
-              <div className="flex gap-2">
-                <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                  Previous
-                </button>
-                <button className="px-4 py-2 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white rounded-lg hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600 transition-all">
-                  1
-                </button>
-                <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                  2
-                </button>
-                <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                  Next
-                </button>
-              </div>
-            </div>
-          </div>
+          )}
         </main>
       </div>
+
+      {/* Add/Edit Event Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <h2 className="text-2xl text-gray-900 dark:text-white">
+                {editingEvent ? 'Edit Event' : 'Add New Event'}
+              </h2>
+              <button
+                onClick={handleCloseModal}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X size={24} className="text-gray-600 dark:text-gray-400" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Event Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.title}
+                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white"
+                    placeholder="Enter event title"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Category *</label>
+                  <select
+                    required
+                    value={formData.category}
+                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white"
+                  >
+                    <option value="Concert">Concert</option>
+                    <option value="Comedy">Comedy</option>
+                    <option value="Dance">Dance</option>
+                    <option value="Art">Art</option>
+                    <option value="Literature">Literature</option>
+                    <option value="Festival">Festival</option>
+                    <option value="Music">Music</option>
+                    <option value="Music Festival">Music Festival</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">City *</label>
+                  <select
+                    required
+                    value={formData.city}
+                    onChange={(e) => setFormData({...formData, city: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white"
+                  >
+                    <option value="Mumbai">Mumbai</option>
+                    <option value="Delhi">Delhi</option>
+                    <option value="Bengaluru">Bengaluru</option>
+                    <option value="Hyderabad">Hyderabad</option>
+                    <option value="Chennai">Chennai</option>
+                    <option value="Kolkata">Kolkata</option>
+                    <option value="New Delhi">New Delhi</option>
+                    <option value="Pune">Pune</option>
+                    <option value="Ahmedabad">Ahmedabad</option>
+                    <option value="Jaipur">Jaipur</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Description *</label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white resize-none"
+                    placeholder="Brief description"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Full Description</label>
+                  <textarea
+                    rows={4}
+                    value={formData.full_description}
+                    onChange={(e) => setFormData({...formData, full_description: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white resize-none"
+                    placeholder="Detailed description"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Venue *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.venue}
+                    onChange={(e) => setFormData({...formData, venue: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white"
+                    placeholder="Venue name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Venue Address</label>
+                  <input
+                    type="text"
+                    value={formData.venue_address}
+                    onChange={(e) => setFormData({...formData, venue_address: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white"
+                    placeholder="Full address"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Event Date *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.event_date}
+                    onChange={(e) => setFormData({...formData, event_date: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white"
+                    placeholder="e.g., Dec 15, 2025"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Event Time *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.event_time}
+                    onChange={(e) => setFormData({...formData, event_time: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white"
+                    placeholder="e.g., 7:00 PM"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Price *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.price}
+                    onChange={(e) => setFormData({...formData, price: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white"
+                    placeholder="e.g., ₹499 onwards"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Image URL</label>
+                  <input
+                    type="text"
+                    value={formData.image_url}
+                    onChange={(e) => setFormData({...formData, image_url: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white"
+                    placeholder="https://..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Language</label>
+                  <input
+                    type="text"
+                    value={formData.language}
+                    onChange={(e) => setFormData({...formData, language: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white"
+                    placeholder="e.g., English, Hindi"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Age Restriction</label>
+                  <input
+                    type="text"
+                    value={formData.age_restriction}
+                    onChange={(e) => setFormData({...formData, age_restriction: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white"
+                    placeholder="e.g., 18+, All ages"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Tags (comma-separated)</label>
+                  <input
+                    type="text"
+                    value={formData.tags}
+                    onChange={(e) => setFormData({...formData, tags: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white"
+                    placeholder="e.g., Music, Concert, Live"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Features (comma-separated)</label>
+                  <input
+                    type="text"
+                    value={formData.features}
+                    onChange={(e) => setFormData({...formData, features: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white"
+                    placeholder="e.g., Indoor Event, Parking Available"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 mt-8">
+                <button
+                  type="submit"
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white rounded-xl hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600 transition-all shadow-lg"
+                >
+                  {editingEvent ? 'Update Event' : 'Create Event'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Mobile Bottom Navigation */}
       <AdminMobileNav />
