@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   Trophy, 
@@ -20,74 +21,176 @@ import {
   ArrowDownRight
 } from 'lucide-react';
 import { RiziaLogo } from '../../components/RiziaLogo';
-import { mockEvents, getAllSubmissions } from '../../data/mockData';
 import { AdminMobileNav } from '../../components/AdminMobileNav';
+import { fetchDashboardStats, fetchAllEvents, fetchAllBookings } from '../../utils/supabaseHelpers';
 
 interface AnalyticsProps {
   onLogout: () => void;
 }
 
 export default function Analytics({ onLogout }: AnalyticsProps) {
-  const submissions = getAllSubmissions();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalEvents: 0,
+    totalBookings: 0,
+    totalUsers: 0,
+    totalRevenue: 0
+  });
+  const [events, setEvents] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [topEvents, setTopEvents] = useState<any[]>([]);
+  const [cityPerformance, setCityPerformance] = useState<any[]>([]);
+  const [categoryBreakdown, setCategoryBreakdown] = useState<any[]>([]);
 
-  const stats = [
+  useEffect(() => {
+    loadAnalyticsData();
+  }, []);
+
+  const loadAnalyticsData = async () => {
+    try {
+      setLoading(true);
+      const [dashboardStats, eventsData, bookingsData] = await Promise.all([
+        fetchDashboardStats(),
+        fetchAllEvents(),
+        fetchAllBookings()
+      ]);
+      
+      setStats(dashboardStats);
+      setEvents(eventsData);
+      setBookings(bookingsData);
+      
+      // Calculate top performing events
+      const eventBookings = bookingsData.reduce((acc: any, booking: any) => {
+        const eventId = booking.event_id;
+        if (!acc[eventId]) {
+          acc[eventId] = {
+            name: booking.event_name,
+            bookings: 0,
+            revenue: 0
+          };
+        }
+        acc[eventId].bookings += 1;
+        acc[eventId].revenue += parseFloat(booking.total_price) || 0;
+        return acc;
+      }, {});
+
+      const topEventsData = Object.values(eventBookings)
+        .sort((a: any, b: any) => b.bookings - a.bookings)
+        .slice(0, 5)
+        .map((event: any) => ({
+          name: event.name,
+          bookings: event.bookings,
+          revenue: `₹${event.revenue.toLocaleString('en-IN')}`,
+          growth: '+0%'
+        }));
+      setTopEvents(topEventsData);
+
+      // Calculate city performance
+      const cityStats = bookingsData.reduce((acc: any, booking: any) => {
+        const city = booking.city;
+        if (!acc[city]) {
+          acc[city] = { city, bookings: 0, revenue: 0 };
+        }
+        acc[city].bookings += 1;
+        acc[city].revenue += parseFloat(booking.total_price) || 0;
+        return acc;
+      }, {});
+
+      const totalCityBookings = Object.values(cityStats).reduce((sum: number, city: any) => sum + city.bookings, 0);
+      const cityPerfData = Object.values(cityStats)
+        .sort((a: any, b: any) => b.bookings - a.bookings)
+        .slice(0, 5)
+        .map((city: any) => ({
+          city: city.city,
+          bookings: city.bookings,
+          revenue: `₹${city.revenue.toLocaleString('en-IN')}`,
+          percentage: Math.round((city.bookings / totalCityBookings) * 100)
+        }));
+      setCityPerformance(cityPerfData);
+
+      // Calculate category breakdown
+      const categoryStats = eventsData.reduce((acc: any, event: any) => {
+        const category = event.category;
+        if (!acc[category]) {
+          acc[category] = 0;
+        }
+        acc[category] += 1;
+        return acc;
+      }, {});
+
+      const totalEvents = Object.values(categoryStats).reduce((sum: number, count: any) => sum + count, 0);
+      const categoryColors: any = {
+        'Concert': 'from-pink-500 to-rose-500',
+        'Comedy': 'from-amber-500 to-orange-500',
+        'Dance': 'from-purple-500 to-violet-500',
+        'Art': 'from-cyan-500 to-blue-500',
+        'Festival': 'from-indigo-500 to-purple-500',
+        'Music': 'from-blue-500 to-cyan-500',
+        'Literature': 'from-teal-500 to-emerald-500'
+      };
+
+      const categoryData = Object.entries(categoryStats)
+        .map(([category, count]: [string, any]) => ({
+          category,
+          count,
+          color: categoryColors[category] || 'from-gray-500 to-gray-600',
+          percentage: Math.round((count / totalEvents) * 100)
+        }))
+        .sort((a, b) => b.count - a.count);
+      setCategoryBreakdown(categoryData);
+
+    } catch (error) {
+      console.error('Error loading analytics data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const displayStats = [
     {
       label: 'Total Revenue',
-      value: '₹2,45,670',
-      change: '+18.2%',
+      value: `₹${stats.totalRevenue.toLocaleString('en-IN')}`,
+      change: '+0%',
       trend: 'up',
       icon: DollarSign,
       color: 'from-green-500 to-emerald-500'
     },
     {
       label: 'Total Bookings',
-      value: submissions.length.toString(),
-      change: '+23.5%',
+      value: stats.totalBookings.toString(),
+      change: '+0%',
       trend: 'up',
       icon: Ticket,
       color: 'from-blue-500 to-cyan-500'
     },
     {
       label: 'Total Events',
-      value: mockEvents.length.toString(),
-      change: '+12.0%',
+      value: stats.totalEvents.toString(),
+      change: '+0%',
       trend: 'up',
       icon: Trophy,
       color: 'from-purple-500 to-pink-500'
     },
     {
-      label: 'Page Views',
-      value: '45,234',
-      change: '-3.2%',
-      trend: 'down',
-      icon: Eye,
+      label: 'Total Users',
+      value: stats.totalUsers.toString(),
+      change: '+0%',
+      trend: 'up',
+      icon: Users,
       color: 'from-orange-500 to-amber-500'
     }
   ];
 
-  const topEvents = [
-    { name: 'Sunburn Arena ft. Martin Garrix', bookings: 234, revenue: '₹58,500', growth: '+24%' },
-    { name: 'Zakir Khan Live', bookings: 189, revenue: '₹47,250', growth: '+18%' },
-    { name: 'Bollywood Dance Workshop', bookings: 156, revenue: '₹31,200', growth: '+15%' },
-    { name: 'Classical Music Evening', bookings: 142, revenue: '₹28,400', growth: '+12%' },
-    { name: 'Stand-up Comedy Night', bookings: 128, revenue: '₹25,600', growth: '+10%' }
-  ];
-
-  const cityPerformance = [
-    { city: 'Mumbai', bookings: 345, revenue: '₹86,250', percentage: 28 },
-    { city: 'Delhi', bookings: 298, revenue: '₹74,500', percentage: 24 },
-    { city: 'Bengaluru', bookings: 267, revenue: '₹66,750', percentage: 22 },
-    { city: 'Hyderabad', bookings: 189, revenue: '₹47,250', percentage: 15 },
-    { city: 'Chennai', bookings: 134, revenue: '₹33,500', percentage: 11 }
-  ];
-
-  const categoryBreakdown = [
-    { category: 'Concert', count: 412, color: 'from-pink-500 to-rose-500', percentage: 35 },
-    { category: 'Comedy', count: 298, color: 'from-amber-500 to-orange-500', percentage: 25 },
-    { category: 'Dance', count: 235, color: 'from-purple-500 to-violet-500', percentage: 20 },
-    { category: 'Art', count: 142, color: 'from-cyan-500 to-blue-500', percentage: 12 },
-    { category: 'Festival', count: 96, color: 'from-indigo-500 to-purple-500', percentage: 8 }
-  ];
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading analytics...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
@@ -200,7 +303,7 @@ export default function Analytics({ onLogout }: AnalyticsProps) {
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-            {stats.map((stat, index) => (
+            {displayStats.map((stat, index) => (
               <div key={index} className="bg-white dark:bg-gray-800 rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all group">
                 <div className="flex items-start justify-between mb-3 md:mb-4">
                   <div className={`p-2 md:p-3 bg-gradient-to-br ${stat.color} rounded-xl md:rounded-2xl shadow-lg group-hover:scale-110 transition-transform`}>

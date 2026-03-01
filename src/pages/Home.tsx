@@ -17,6 +17,7 @@ interface HomeProps {
 export default function Home({ user, selectedCity, onChangeCity }: HomeProps) {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     loadEvents();
@@ -27,6 +28,14 @@ export default function Home({ user, selectedCity, onChangeCity }: HomeProps) {
       setLoading(true);
       const data = await fetchActiveEvents();
       setEvents(data);
+      
+      // Calculate category counts from real data
+      const counts = data.reduce((acc: Record<string, number>, event: any) => {
+        const category = event.category;
+        acc[category] = (acc[category] || 0) + 1;
+        return acc;
+      }, {});
+      setCategoryCounts(counts);
     } catch (error) {
       console.error('Error loading events:', error);
     } finally {
@@ -39,50 +48,50 @@ export default function Home({ user, selectedCity, onChangeCity }: HomeProps) {
       name: 'Concert', 
       icon: '🎵', 
       image: 'https://images.unsplash.com/photo-1642552556378-549e3445315e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtdXNpYyUyMGNvbmNlcnQlMjBwZXJmb3JtZXJ8ZW58MXx8fHwxNzY0OTAyMjAxfDA&ixlib=rb-4.1.0&q=80&w=1080',
-      count: '12',
+      count: categoryCounts['Concert'] || 0,
       gradient: 'from-blue-500 to-cyan-500'
     },
     { 
       name: 'Comedy', 
       icon: '😂', 
       image: 'https://images.unsplash.com/photo-1585699324551-f6c309eedeca?w=1080',
-      count: '8',
+      count: categoryCounts['Comedy'] || 0,
       gradient: 'from-yellow-500 to-orange-500'
     },
     { 
       name: 'Dance', 
       icon: '💃', 
       image: 'https://images.unsplash.com/photo-1698824554771-293b5dcc42db?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxkYW5jZSUyMHBlcmZvcm1hbmNlJTIwc3RhZ2V8ZW58MXx8fHwxNzY0ODI1Nzc4fDA&ixlib=rb-4.1.0&q=80&w=1080',
-      count: '10',
+      count: categoryCounts['Dance'] || 0,
       gradient: 'from-pink-500 to-rose-500'
     },
     { 
       name: 'Art', 
       icon: '🎨', 
       image: 'https://images.unsplash.com/photo-1683222042853-37cd29faf895?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhcnQlMjBwYWludGluZyUyMGNhbnZhc3xlbnwxfHx8fDE3NjQ4NDk1OTZ8MA&ixlib=rb-4.1.0&q=80&w=1080',
-      count: '6',
+      count: categoryCounts['Art'] || 0,
       gradient: 'from-purple-500 to-violet-500'
     },
     { 
       name: 'Literature', 
       icon: '📚', 
       image: 'https://images.unsplash.com/photo-1612907260223-2c7aff7a7d3d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3cml0aW5nJTIwbm90ZWJvb2slMjBjcmVhdGl2ZXxlbnwxfHx8fDE3NjQ4NTE1NzV8MA&ixlib=rb-4.1.0&q=80&w=1080',
-      count: '5',
+      count: categoryCounts['Literature'] || 0,
       gradient: 'from-teal-500 to-emerald-500'
     },
     { 
       name: 'Festival', 
       icon: '🎪', 
       image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=1080',
-      count: '15',
+      count: categoryCounts['Festival'] || 0,
       gradient: 'from-indigo-500 to-blue-500'
     }
   ];
 
   const stats = [
-    { label: 'Live Events', value: '250+', icon: Ticket, gradient: 'from-pink-500 to-rose-500' },
+    { label: 'Live Events', value: events.length.toString(), icon: Ticket, gradient: 'from-pink-500 to-rose-500' },
     { label: 'Happy Attendees', value: '50K+', icon: Users, gradient: 'from-purple-500 to-indigo-500' },
-    { label: 'Cities Covered', value: '12', icon: MapPin, gradient: 'from-blue-500 to-cyan-500' },
+    { label: 'Cities Covered', value: '20', icon: MapPin, gradient: 'from-blue-500 to-cyan-500' },
     { label: 'Events This Month', value: '80+', icon: Calendar, gradient: 'from-orange-500 to-amber-500' }
   ];
 

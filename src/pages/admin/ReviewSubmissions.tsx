@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router';
 import { Shield, LogOut, CheckCircle, XCircle, MessageSquare, ArrowLeft } from 'lucide-react';
-import { getCompetitionById } from '../../data/mockData';
+import { fetchEventById } from '../../utils/supabaseHelpers';
 
 interface ReviewSubmissionsProps {
   onLogout: () => void;
@@ -9,9 +9,28 @@ interface ReviewSubmissionsProps {
 
 export default function ReviewSubmissions({ onLogout }: ReviewSubmissionsProps) {
   const { id } = useParams<{ id: string }>();
-  const competition = id ? getCompetitionById(id) : null;
+  const [competition, setCompetition] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Mock submissions for review
+  useEffect(() => {
+    if (id) {
+      loadEvent();
+    }
+  }, [id]);
+
+  const loadEvent = async () => {
+    try {
+      setLoading(true);
+      const eventData = await fetchEventById(id!);
+      setCompetition(eventData);
+    } catch (error) {
+      console.error('Error loading event:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Mock submissions for review (this feature is not yet connected to database)
   const [submissions, setSubmissions] = useState([
     {
       id: '1',
@@ -70,7 +89,7 @@ export default function ReviewSubmissions({ onLogout }: ReviewSubmissionsProps) 
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
-  if (!competition) {
+  if (!competition && !loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -131,9 +150,9 @@ export default function ReviewSubmissions({ onLogout }: ReviewSubmissionsProps) 
           </Link>
 
           <div className="mb-8">
-            <h2 className="text-gray-900 mb-2">{competition.title}</h2>
+            <h2 className="text-gray-900 mb-2">{competition?.title}</h2>
             <p className="text-gray-600">
-              {competition.category} • Deadline: {competition.deadline}
+              {competition?.category} • Deadline: {competition?.deadline}
             </p>
           </div>
 
